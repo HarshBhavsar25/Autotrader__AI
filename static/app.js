@@ -292,16 +292,34 @@ async function saveWalletCredentials() {
     }
 }
 
-function loadSavedCredentialsUI() {
+async function loadSavedCredentialsUI() {
     const savedKey = localStorage.getItem('autotrader_api_key');
     const savedSecret = localStorage.getItem('autotrader_api_secret');
-    const savedExchange = localStorage.getItem('autotrader_exchange');
-    const savedMode = localStorage.getItem('autotrader_mode');
+    const savedExchange = localStorage.getItem('autotrader_exchange') || 'coindcx';
+    const savedMode = localStorage.getItem('autotrader_mode') || 'PAPER';
 
     if (savedKey) document.getElementById('modalApiKey').value = savedKey;
     if (savedSecret) document.getElementById('modalApiSecret').value = savedSecret;
     if (savedExchange) document.getElementById('modalExchange').value = savedExchange;
     if (savedMode) document.getElementById('headerModeSelect').value = savedMode;
+
+    // Automatically sync client-side localStorage credentials with backend session on page load
+    if (savedKey && savedSecret) {
+        try {
+            await fetch('/api/save-credentials', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    exchange_name: savedExchange,
+                    trading_mode: savedMode,
+                    api_key: savedKey,
+                    api_secret: savedSecret
+                })
+            });
+        } catch (e) {
+            console.log('Background credential sync from localStorage:', e);
+        }
+    }
 }
 
 async function toggleBotEngine() {

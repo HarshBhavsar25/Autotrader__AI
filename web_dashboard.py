@@ -259,10 +259,13 @@ async def save_credentials(request: Request):
                     "message": f"⚠️ Connection Failed: {validation_msg}. Please check your API Key and Secret on {exchange_name.upper()}!"
                 })
 
-        # Persist valid credentials to .env file on disk
-        env_path = os.path.join(os.path.dirname(__file__), ".env")
-        with open(env_path, "w", encoding="utf-8") as f:
-            f.write(f"TRADING_MODE={mode}\nEXCHANGE_NAME={exchange_name}\nEXCHANGE_API_KEY={api_key}\nEXCHANGE_API_SECRET={api_secret}\n")
+        # Safely persist valid credentials to .env file on disk if environment permits
+        try:
+            env_path = os.path.join(os.path.dirname(__file__), ".env")
+            with open(env_path, "w", encoding="utf-8") as f:
+                f.write(f"TRADING_MODE={mode}\nEXCHANGE_NAME={exchange_name}\nEXCHANGE_API_KEY={api_key}\nEXCHANGE_API_SECRET={api_secret}\n")
+        except Exception as env_err:
+            logger.debug(f"Skipping .env disk write in cloud environment: {env_err}")
         
         # Update global system components
         system_components["exchange"] = new_adapter
