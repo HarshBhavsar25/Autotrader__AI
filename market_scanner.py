@@ -98,7 +98,7 @@ class MarketScanner:
                 ranking_item["expected_net_pnl"] = trade_calc.expected_net_profit_inr
 
                 # Ensure trade meets expected net profit target criteria
-                if trade_calc.expected_net_profit_inr >= 5.0:  # Fast execution entry filter
+                if trade_calc.expected_net_profit_inr >= 0.0:  # Immediate entry filter for high-conviction paper trades
                     return ScannedOpportunity(
                         symbol=symbol,
                         signal=sig_result.signal,

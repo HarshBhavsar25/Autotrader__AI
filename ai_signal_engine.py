@@ -202,9 +202,9 @@ class AISignalEngine:
             if curr['close'] > curr['ema9']: pattern_pts_long += 5.0
             else: pattern_pts_short += 5.0
 
-        # Aggregate Confluence Scores
-        total_long_score = min(100.0, adx_pts + long_trend_pts + long_rsi_pts + long_macd_pts + long_vol_pts + pattern_pts_long)
-        total_short_score = min(100.0, adx_pts + short_trend_pts + short_rsi_pts + short_macd_pts + short_vol_pts + pattern_pts_short)
+        # Aggregate Confluence Scores (Dynamic scaling from 38% to 98.5%)
+        total_long_score = min(98.5, max(38.0, 20.0 + adx_pts + long_trend_pts + long_rsi_pts + long_macd_pts + long_vol_pts + pattern_pts_long))
+        total_short_score = min(98.5, max(38.0, 20.0 + adx_pts + short_trend_pts + short_rsi_pts + short_macd_pts + short_vol_pts + pattern_pts_short))
 
         swap_enabled = getattr(self.cfg, "SWAP_LONG_SHORT_SIGNALS", False)
 

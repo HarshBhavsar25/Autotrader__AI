@@ -22,33 +22,67 @@ class PaperExchangeAdapter:
         self.balance_inr = cfg.INITIAL_CAPITAL_INR
         self.spot_balance_inr = 0.0
         self.base_capital_inr = cfg.INITIAL_CAPITAL_INR
-        self.exchange = ccxt_async.binance({
-            'enableRateLimit': True,
-            'options': {'defaultType': 'future'}
-        })
+        self.public_exchange_binance = ccxt_async.binance({'enableRateLimit': True, 'options': {'defaultType': 'future'}})
+        self.public_exchange_bybit = ccxt_async.bybit({'enableRateLimit': True, 'options': {'defaultType': 'linear'}})
+        self.public_exchange_okx = ccxt_async.okx({'enableRateLimit': True})
         self.active_position: Optional[Dict[str, Any]] = None
 
-    async def fetch_ohlcv(self, symbol: str, timeframe: str = "5m", limit: int = 100) -> Optional[pd.DataFrame]:
+    async def fetch_ohlcv(self, symbol: str, timeframe: str = "1m", limit: int = 100) -> Optional[pd.DataFrame]:
+        clean_sym = symbol.replace("/", "_")
+        coindcx_pair = f"B-{clean_sym}" if not clean_sym.startswith("B-") else clean_sym
+
+        # 1. CoinDCX Native Public Candle API (High Speed)
         try:
-            ohlcv = await self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-            if not ohlcv:
-                return None
-            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
-            return df
-        except Exception as e:
-            logger.debug(f"Could not fetch live OHLCV for {symbol}: {e}")
-            return None
+            url = f"https://public.coindcx.com/market_data/candles?pair={coindcx_pair}&interval=1m&limit={limit}"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=2.0) as res:
+                    if res.status == 200:
+                        c_data = await res.json()
+                        if isinstance(c_data, list) and len(c_data) >= 10:
+                            rows = []
+                            for c in c_data:
+                                rows.append([
+                                    int(c.get('time', 0)),
+                                    float(c.get('open', 0)),
+                                    float(c.get('high', 0)),
+                                    float(c.get('low', 0)),
+                                    float(c.get('close', 0)),
+                                    float(c.get('volume', 0))
+                                ])
+                            rows.sort(key=lambda x: x[0])
+                            df = pd.DataFrame(rows, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                            df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
+                            return df
+        except Exception:
+            pass
+
+        # 2. Fast Fallback Exchanges (Binance -> Bybit -> OKX)
+        for ex in [self.public_exchange_binance, self.public_exchange_bybit, self.public_exchange_okx]:
+            try:
+                ohlcv = await asyncio.wait_for(ex.fetch_ohlcv(symbol, timeframe, limit=limit), timeout=2.0)
+                if ohlcv and len(ohlcv) >= 10:
+                    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                    df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
+                    return df
+            except Exception:
+                continue
+
+        return None
 
     async def fetch_ticker_price(self, symbol: str) -> float:
-        try:
-            ticker = await self.exchange.fetch_ticker(symbol)
-            return float(ticker['last'])
-        except Exception:
-            df = await self.fetch_ohlcv(symbol, limit=2)
-            if df is not None and not df.empty:
-                return float(df.iloc[-1]['close'])
-            return 0.0
+        df = await self.fetch_ohlcv(symbol, limit=2)
+        if df is not None and not df.empty:
+            return float(df.iloc[-1]['close'])
+
+        for ex in [self.public_exchange_binance, self.public_exchange_bybit, self.public_exchange_okx]:
+            try:
+                ticker = await asyncio.wait_for(ex.fetch_ticker(symbol), timeout=2.0)
+                if ticker and 'last' in ticker and float(ticker['last']) > 0:
+                    return float(ticker['last'])
+            except Exception:
+                continue
+
+        return 0.0
 
     async def fetch_live_balance_inr(self) -> float:
         return self.balance_inr
@@ -76,10 +110,11 @@ class PaperExchangeAdapter:
         return True, f"Successfully transferred ₹{amount_inr:.2f} to Spot Wallet"
 
     async def close(self):
-        try:
-            await self.exchange.close()
-        except Exception:
-            pass
+        for ex in [self.public_exchange_binance, self.public_exchange_bybit, self.public_exchange_okx]:
+            try:
+                await ex.close()
+            except Exception:
+                pass
 
 
 class CoinDCXNativeAdapter:
