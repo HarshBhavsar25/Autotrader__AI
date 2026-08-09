@@ -320,17 +320,17 @@ class CoinDCXNativeAdapter:
         self.cached_futures_bal += delta_inr
 
     async def fetch_ohlcv(self, symbol: str, timeframe: str = "1m", limit: int = 100) -> Optional[pd.DataFrame]:
-        # 1. Try CoinDCX Native Public Candles API First
+        clean_sym = symbol.replace("/", "_")
+        coindcx_pair = f"B-{clean_sym}" if not clean_sym.startswith("B-") else clean_sym
+        
+        # 1. CoinDCX Native Public Candle API (High Speed)
         try:
-            clean_sym = symbol.replace("/", "_")
-            coindcx_pair = f"B-{clean_sym}" if not clean_sym.startswith("B-") else clean_sym
             url = f"https://public.coindcx.com/market_data/candles?pair={coindcx_pair}&interval=1m&limit={limit}"
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=5) as res:
+                async with session.get(url, timeout=2.0) as res:
                     if res.status == 200:
                         c_data = await res.json()
                         if isinstance(c_data, list) and len(c_data) >= 10:
-                            # CoinDCX format: [{'open': 0, 'high': 0, 'low': 0, 'close': 0, 'volume': 0, 'time': 123}, ...]
                             rows = []
                             for c in c_data:
                                 rows.append([
@@ -341,30 +341,24 @@ class CoinDCXNativeAdapter:
                                     float(c.get('close', 0)),
                                     float(c.get('volume', 0))
                                 ])
-                            # Sort by timestamp ascending
                             rows.sort(key=lambda x: x[0])
                             df = pd.DataFrame(rows, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
                             df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
                             return df
-        except Exception as err_cdcx:
-            logger.debug(f"CoinDCX native candles fetch error for {symbol}: {err_cdcx}")
+        except Exception:
+            pass
 
-        # 2. Fallback to CCXT Multi-Exchange & Symbol Variants (Binance, Bybit, OKX)
-        exchanges = [self.public_exchange_binance, self.public_exchange_bybit, self.public_exchange_okx]
-        sym_variants = [symbol, symbol + ":USDT", symbol.replace("/", "")]
-        tf_variants = [timeframe, "5m", "1m"]
+        # 2. Fast Fallback Exchanges (Binance -> Bybit -> OKX)
+        for ex in [self.public_exchange_binance, self.public_exchange_bybit, self.public_exchange_okx]:
+            try:
+                ohlcv = await asyncio.wait_for(ex.fetch_ohlcv(symbol, timeframe, limit=limit), timeout=2.0)
+                if ohlcv and len(ohlcv) >= 10:
+                    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                    df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
+                    return df
+            except Exception:
+                continue
 
-        for ex in exchanges:
-            for s_var in sym_variants:
-                for tf_var in tf_variants:
-                    try:
-                        ohlcv = await ex.fetch_ohlcv(s_var, tf_var, limit=limit)
-                        if ohlcv and len(ohlcv) >= 10:
-                            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-                            df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
-                            return df
-                    except Exception:
-                        continue
         return None
 
     async def fetch_ticker_price(self, symbol: str) -> float:
