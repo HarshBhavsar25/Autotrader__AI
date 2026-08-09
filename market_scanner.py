@@ -21,7 +21,21 @@ class MarketScanner:
     def __init__(self, exchange_adapter, cfg=config):
         self.adapter = exchange_adapter
         self.cfg = cfg
-        self.latest_rankings: List[Dict[str, Any]] = []
+        self.latest_rankings: List[Dict[str, Any]] = [
+            {
+                "symbol": sym,
+                "signal": "SCANNING",
+                "confidence_score": 50.0,
+                "price": 0.0,
+                "rsi": 50.0,
+                "rvol": 1.0,
+                "trend_score": 0.0,
+                "momentum_score": 0.0,
+                "volume_score": 0.0,
+                "expected_net_pnl": 0.0
+            }
+            for sym in self.cfg.WATCHLIST_PAIRS[:15]
+        ]
         self.is_scanning: bool = False
 
     async def scan_single_pair(self, symbol: str, current_balance_inr: float, active_positions_count: int = 0) -> Optional[ScannedOpportunity]:
