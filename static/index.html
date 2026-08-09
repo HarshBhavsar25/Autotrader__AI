@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoTrader_AI | High-Performance Futures Bot</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo-section">
+                <div class="logo-badge">⚡ AutoTrader_AI</div>
+                <div>
+                    <h2 style="font-size: 1.1rem; font-weight: 600;">Automated Futures Trading</h2>
+                    <p style="font-size: 0.8rem; color: var(--text-muted);">24/7 Market Scanning & Dynamic Risk Engine</p>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <!-- Trading Mode Selector Pill -->
+                <div style="background: rgba(255, 255, 255, 0.08); border: 1px solid var(--card-border); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Mode:</span>
+                    <select id="headerModeSelect" onchange="changeModeFromHeader(this.value)" style="background: transparent; border: none; color: var(--accent-cyan); font-weight: 700; font-size: 0.88rem; cursor: pointer; outline: none;">
+                        <option value="PAPER" style="background: #111827; color: #fff;">📄 PAPER (Simulated)</option>
+                        <option value="LIVE" style="background: #111827; color: #fff;">🔴 LIVE (Real Funds)</option>
+                    </select>
+                </div>
+
+                <!-- Bot Start/Pause Button -->
+                <button class="btn" id="btnToggleBot" onclick="toggleBotEngine()" style="background: linear-gradient(135deg, var(--accent-green), #059669);">
+                    ⏸️ Pause Engine
+                </button>
+
+                <!-- Reset Paper Balance Button -->
+                <button class="btn" id="btnResetBalance" onclick="resetPaperBalance()" style="background: rgba(255, 255, 255, 0.1);">
+                    🔄 Reset Balance (₹1000)
+                </button>
+
+                <!-- Connect Wallet Modal Button -->
+                <button class="btn" style="background: linear-gradient(135deg, var(--accent-purple), #6366F1);" onclick="openWalletModal()">
+                    ⚙️ Connect Wallet (CoinDCX/Binance)
+                </button>
+            </div>
+        </header>
+
+        <!-- Wallet Credentials Modal -->
+        <div id="walletModal" class="modal-backdrop" style="display: none;">
+            <div class="modal-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+                    <h3 style="font-size: 1.3rem; font-weight: 700;">Connect Real-Time Exchange Wallet</h3>
+                    <button onclick="closeWalletModal()" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">Enter your Exchange API keys (CoinDCX, Binance, Bybit) to trade live real-time funds.</p>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="font-size: 0.85rem; display: block; margin-bottom: 6px; color: var(--text-muted);">Exchange</label>
+                    <select id="modalExchange" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: #fff;">
+                        <option value="coindcx">CoinDCX (India)</option>
+                        <option value="binance">Binance Futures</option>
+                        <option value="bybit">Bybit Futures</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="font-size: 0.85rem; display: block; margin-bottom: 6px; color: var(--text-muted);">Trading Mode</label>
+                    <select id="modalMode" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: #fff;">
+                        <option value="LIVE">LIVE (Real Funds)</option>
+                        <option value="PAPER">PAPER (Simulation with Live Prices)</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label style="font-size: 0.85rem; display: block; margin-bottom: 6px; color: var(--text-muted);">API Key</label>
+                    <input type="text" id="modalApiKey" placeholder="Paste Exchange API Key" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: #fff;">
+                </div>
+
+                <div style="margin-bottom: 18px;">
+                    <label style="font-size: 0.85rem; display: block; margin-bottom: 6px; color: var(--text-muted);">API Secret</label>
+                    <input type="password" id="modalApiSecret" placeholder="Paste Exchange API Secret" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: #fff;">
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                    <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="closeWalletModal()">Cancel</button>
+                    <button class="btn" style="background: linear-gradient(135deg, var(--accent-green), #059669);" onclick="saveWalletCredentials()">Connect & Start Trading</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="grid-4">
+            <div class="card">
+                <div class="card-title">Futures Wallet Balance</div>
+                <div class="card-value" id="futuresBalance">₹1,000.00</div>
+                <div class="card-subtext" id="baseCapitalText">Base Capital: ₹1,000.00</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Spot Wallet (Realized Profits)</div>
+                <div class="card-value" style="color: var(--accent-green);" id="spotBalance">₹0.00</div>
+                <div class="card-subtext" id="totalTransferredText">Total Transferred: ₹0.00</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Daily Net PnL Target</div>
+                <div class="card-value" id="dailyPnL">₹0.00</div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="dailyTargetProgressBar"></div>
+                </div>
+                <div class="card-subtext" id="dailyTargetText">Target: ₹500.00 / 24h (0.0%)</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Performance Metrics</div>
+                <div class="card-value" id="winRate">0.0%</div>
+                <div class="card-subtext" id="totalTradesText">0 Trades Executed</div>
+            </div>
+        </div>
+
+        <!-- Insufficient Balance Warning Banner -->
+        <div id="insufficientBalanceBanner" style="display: none; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); color: #F87171; padding: 14px 20px; border-radius: 12px; margin-bottom: 20px; font-weight: 600; text-align: center;">
+            ⚠️ Insufficient Futures Balance (< ₹100). Live auto-trading is paused. Please deposit funds into your exchange Futures wallet or switch to Paper Mode!
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- Active Trade Column (Scrollable Multi-Positions) -->
+            <div class="card">
+                <div class="active-trade-header">
+                    <h3 style="font-size: 1.1rem; font-weight: 600;">Active Open Positions</h3>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="activePositionsCountBadge" style="font-size: 0.8rem; background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.4); padding: 4px 10px; border-radius: 12px; font-weight: 700;">0 Open</span>
+                        <button class="btn btn-danger" id="btnCloseAllBtn" onclick="closeActivePosition()" style="font-size: 0.78rem; padding: 5px 12px; display: none;">⚡ Close All</button>
+                    </div>
+                </div>
+
+                <div id="noActiveTradeMsg" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+                    <p style="font-size: 1.1rem; margin-bottom: 8px;">🔍 Scanning Futures Markets...</p>
+                    <p style="font-size: 0.85rem;">Searching for ≥80% AI Confidence Opportunities</p>
+                </div>
+
+                <div id="activePositionsListContainer" class="positions-scroll-container" style="display: none;">
+                    <!-- Dynamic scrollable position cards inserted via app.js -->
+                </div>
+            </div>
+
+            <!-- Top AI Opportunity Pair Rankings -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="font-size: 1.1rem; font-weight: 600;">24/7 Market Scanner Rankings</h3>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Confidence Score ≥80% Threshold</span>
+                </div>
+                <div style="max-height: 280px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pair</th>
+                                <th>Signal</th>
+                                <th>Confidence</th>
+                                <th>Price</th>
+                                <th>RSI</th>
+                                <th>Exp. Net PnL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankingsTableBody">
+                            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Initializing Market Scanner...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lower Grid: Trade History & Audit Event Stream -->
+        <div class="dashboard-grid" style="margin-top: 24px;">
+            <div class="card">
+                <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 14px;">Recent Completed Trades</h3>
+                <div style="max-height: 220px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Pair</th>
+                                <th>Side</th>
+                                <th>Entry / Exit</th>
+                                <th>Net PnL (₹)</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tradeHistoryBody">
+                            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No completed trades recorded yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 14px;">Live System Audit Logs</h3>
+                <div class="log-box" id="systemLogBox">
+                    <div class="log-entry"><span class="time">[System]</span> Bot started in Paper Simulation Mode. Initialized balance ₹1,000.00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

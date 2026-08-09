@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: autotrader-ai
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: TRADING_MODE
+        value: PAPER
+      - key: EXCHANGE_NAME
+        value: binance
+      - key: COINDCX_API_KEY
+        sync: false
+      - key: COINDCX_API_SECRET
+        sync: false
