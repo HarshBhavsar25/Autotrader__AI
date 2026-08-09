@@ -178,21 +178,32 @@ function updateTelemetry(data) {
 
     // 5. Update Recent Trades Table
     const tradeBody = document.getElementById('tradeHistoryBody');
-    if (recentTrades.length > 0) {
+    if (recentTrades && recentTrades.length > 0) {
         tradeBody.innerHTML = recentTrades.map(t => {
-            const timeStr = t.exit_time ? new Date(t.exit_time).toLocaleTimeString() : '';
-            const pnlClass = t.net_pnl_inr >= 0 ? 'color: var(--accent-green);' : 'color: var(--accent-red);';
+            const rawTime = t.exit_time || t.entry_time || t.timestamp;
+            const timeStr = rawTime ? new Date(rawTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Just now';
+            const pnlVal = t.net_pnl_inr || 0.0;
+            const pnlClass = pnlVal >= 0 ? 'color: var(--accent-green);' : 'color: var(--accent-red);';
+            const cleanStatus = (t.status || 'CLOSED').replace('CLOSED_', '');
             return `
                 <tr>
                     <td style="font-size: 0.8rem; color: var(--text-muted);">${timeStr}</td>
                     <td style="font-weight: 600; font-family: 'JetBrains Mono';">${t.symbol}</td>
                     <td style="font-weight: 700; color: ${t.side === 'LONG' ? 'var(--accent-green)' : 'var(--accent-red)'};">${t.side}</td>
                     <td style="font-size: 0.85rem; font-family: 'JetBrains Mono';">₹${t.entry_price} → ₹${t.exit_price || t.entry_price}</td>
-                    <td style="font-weight: 700; font-family: 'JetBrains Mono'; ${pnlClass}">${t.net_pnl_inr >= 0 ? '+' : ''}₹${t.net_pnl_inr.toFixed(2)}</td>
-                    <td style="font-size: 0.8rem; color: var(--text-muted);">${t.status}</td>
+                    <td style="font-weight: 700; font-family: 'JetBrains Mono'; ${pnlClass}">${pnlVal >= 0 ? '+' : ''}₹${pnlVal.toFixed(2)}</td>
+                    <td style="font-size: 0.8rem; color: var(--text-muted);">${cleanStatus}</td>
                 </tr>
             `;
         }).join('');
+    } else {
+        tradeBody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                    No completed trades recorded yet. Open trades will auto-close here on Trailing SL / TP hit.
+                </td>
+            </tr>
+        `;
     }
 
     // 6. Update System Logs Terminal
