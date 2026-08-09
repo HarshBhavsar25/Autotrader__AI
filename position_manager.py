@@ -78,8 +78,10 @@ class PositionManager:
         """
         trade_calc = opp.trade_calc
 
-        # Submit real futures order on live exchange first when in LIVE mode
-        if self.cfg.TRADING_MODE.upper() == "LIVE" and hasattr(self.adapter, "create_futures_order"):
+        # Submit real futures order on live exchange ONLY when in LIVE mode with a real exchange adapter
+        from exchange_adapter import PaperExchangeAdapter
+        is_paper_adapter = isinstance(self.adapter, PaperExchangeAdapter)
+        if self.cfg.TRADING_MODE.upper() == "LIVE" and not is_paper_adapter and hasattr(self.adapter, "create_futures_order"):
             try:
                 res = await self.adapter.create_futures_order(
                     symbol=opp.symbol,
