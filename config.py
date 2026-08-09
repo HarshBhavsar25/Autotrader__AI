@@ -54,8 +54,8 @@ class TradingConfig:
     # Mode & Exchange
     TRADING_MODE: str = os.getenv("TRADING_MODE", "PAPER")  # "PAPER" or "LIVE"
     EXCHANGE_NAME: str = os.getenv("EXCHANGE_NAME", "binance") # binance, bybit, delta, coindcx
-    API_KEY: str = os.getenv("EXCHANGE_API_KEY", "")
-    API_SECRET: str = os.getenv("EXCHANGE_API_SECRET", "")
+    API_KEY: str = os.getenv("EXCHANGE_API_KEY", os.getenv("COINDCX_API_KEY", ""))
+    API_SECRET: str = os.getenv("EXCHANGE_API_SECRET", os.getenv("COINDCX_API_SECRET", ""))
 
     # Bot Control Flags
     IS_BOT_RUNNING: bool = True
