@@ -31,6 +31,21 @@ class MarketScanner:
         try:
             df = await self.adapter.fetch_ohlcv(symbol, timeframe="1m", limit=100)
             if df is None or len(df) < 20:
+                last_price = await self.adapter.fetch_ticker_price(symbol)
+                if last_price > 0:
+                    ranking_item = {
+                        "symbol": symbol,
+                        "signal": "ANALYZING",
+                        "confidence_score": 50.0,
+                        "price": last_price,
+                        "rsi": 50.0,
+                        "rvol": 1.0,
+                        "trend_score": 0.0,
+                        "momentum_score": 0.0,
+                        "volume_score": 0.0,
+                        "expected_net_pnl": 0.0
+                    }
+                    self._update_ranking_cache(ranking_item)
                 return None
 
             sig_result = ai_signal_engine.analyze_candles(symbol, df)
