@@ -94,11 +94,10 @@ class CoinDCXNativeAdapter:
         self.cached_futures_bal: float = 0.0
         self.cached_spot_bal: float = 0.0
         self.last_auth_error: str = ""
-        # Public data fallback exchange for smooth high-speed candle feeds
-        self.public_exchange = ccxt_async.binance({
-            'enableRateLimit': True,
-            'options': {'defaultType': 'future'}
-        })
+        # Multi-exchange public instances for cloud compatibility (Render, AWS, GCP)
+        self.public_exchange_binance = ccxt_async.binance({'enableRateLimit': True, 'options': {'defaultType': 'future'}})
+        self.public_exchange_bybit = ccxt_async.bybit({'enableRateLimit': True, 'options': {'defaultType': 'linear'}})
+        self.public_exchange_okx = ccxt_async.okx({'enableRateLimit': True})
 
     def _get_headers_and_payload(self, extra_payload: Optional[dict] = None) -> Tuple[dict, str]:
         secret_bytes = bytes(self.api_secret, 'utf-8')
@@ -321,29 +320,36 @@ class CoinDCXNativeAdapter:
         self.cached_futures_bal += delta_inr
 
     async def fetch_ohlcv(self, symbol: str, timeframe: str = "5m", limit: int = 100) -> Optional[pd.DataFrame]:
-        try:
-            ohlcv = await self.public_exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-            if not ohlcv:
-                return None
-            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
-            return df
-        except Exception as e:
-            logger.debug(f"OHLCV fetch error for {symbol}: {e}")
-            return None
+        exchanges = [self.public_exchange_binance, self.public_exchange_bybit, self.public_exchange_okx]
+        for ex in exchanges:
+            try:
+                ohlcv = await ex.fetch_ohlcv(symbol, timeframe, limit=limit)
+                if ohlcv and len(ohlcv) >= 10:
+                    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                    df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
+                    return df
+            except Exception as e:
+                logger.debug(f"OHLCV fetch error for {symbol} on {getattr(ex, 'id', 'exchange')}: {e}")
+                continue
+        return None
 
     async def fetch_ticker_price(self, symbol: str) -> float:
-        try:
-            ticker = await self.public_exchange.fetch_ticker(symbol)
-            return float(ticker['last'])
-        except Exception:
-            return 0.0
+        exchanges = [self.public_exchange_binance, self.public_exchange_bybit, self.public_exchange_okx]
+        for ex in exchanges:
+            try:
+                ticker = await ex.fetch_ticker(symbol)
+                if ticker and 'last' in ticker and float(ticker['last']) > 0:
+                    return float(ticker['last'])
+            except Exception:
+                continue
+        return 0.0
 
     async def close(self):
-        try:
-            await self.public_exchange.close()
-        except Exception:
-            pass
+        for ex in [self.public_exchange_binance, self.public_exchange_bybit, self.public_exchange_okx]:
+            try:
+                await ex.close()
+            except Exception:
+                pass
 
 
 class CCXTLiveExchangeAdapter:
