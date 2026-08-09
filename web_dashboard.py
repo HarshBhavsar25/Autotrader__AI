@@ -212,10 +212,7 @@ async def set_trading_mode(request: Request):
 
     config.TRADING_MODE = new_mode
 
-    # Write updated mode to .env on disk
-    env_path = os.path.join(os.path.dirname(__file__), ".env")
-    with open(env_path, "w", encoding="utf-8") as f:
-        f.write(f"TRADING_MODE={new_mode}\nEXCHANGE_NAME={config.EXCHANGE_NAME}\nEXCHANGE_API_KEY={config.API_KEY}\nEXCHANGE_API_SECRET={config.API_SECRET}\n")
+    # Update mode in memory session
 
     system_components["exchange"] = new_adapter
     system_components["wallet_mgr"] = WalletManager(new_adapter, config)
@@ -259,13 +256,7 @@ async def save_credentials(request: Request):
                     "message": f"⚠️ Connection Failed: {validation_msg}. Please check your API Key and Secret on {exchange_name.upper()}!"
                 })
 
-        # Safely persist valid credentials to .env file on disk if environment permits
-        try:
-            env_path = os.path.join(os.path.dirname(__file__), ".env")
-            with open(env_path, "w", encoding="utf-8") as f:
-                f.write(f"TRADING_MODE={mode}\nEXCHANGE_NAME={exchange_name}\nEXCHANGE_API_KEY={api_key}\nEXCHANGE_API_SECRET={api_secret}\n")
-        except Exception as env_err:
-            logger.debug(f"Skipping .env disk write in cloud environment: {env_err}")
+        # Keep API credentials exclusively in client browser localStorage and session memory (No disk persistence of user keys)
         
         # Update global system components
         system_components["exchange"] = new_adapter

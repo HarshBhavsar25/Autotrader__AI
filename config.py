@@ -51,11 +51,11 @@ class TradingConfig:
     ESTIMATED_FUNDING_RATE_PER_8H: float = 0.0001 # 0.01%
     USD_INR_RATE: float = 85.0                  # Default exchange rate USD to INR
 
-    # Mode & Exchange
-    TRADING_MODE: str = os.getenv("TRADING_MODE", "PAPER")  # "PAPER" or "LIVE"
-    EXCHANGE_NAME: str = os.getenv("EXCHANGE_NAME", "binance") # binance, bybit, delta, coindcx
-    API_KEY: str = os.getenv("EXCHANGE_API_KEY", os.getenv("COINDCX_API_KEY", ""))
-    API_SECRET: str = os.getenv("EXCHANGE_API_SECRET", os.getenv("COINDCX_API_SECRET", ""))
+    # Mode & Exchange (Default PAPER mode; LIVE mode uses client browser localStorage credentials)
+    TRADING_MODE: str = "PAPER"
+    EXCHANGE_NAME: str = "coindcx"
+    API_KEY: str = ""
+    API_SECRET: str = ""
 
     # Bot Control Flags
     IS_BOT_RUNNING: bool = True
